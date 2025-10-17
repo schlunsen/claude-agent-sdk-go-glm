@@ -455,11 +455,13 @@ func (t *SubprocessCLITransport) compareVersions(v1, v2 string) int {
 func (t *SubprocessCLITransport) messageReaderLoop() {
 	defer close(t.messageChan)
 
+	// Get reader and ready state atomically
 	t.mu.Lock()
 	reader := t.stdoutReader
+	ready := t.ready
 	t.mu.Unlock()
 
-	if !t.ready || reader == nil {
+	if !ready || reader == nil {
 		return
 	}
 
@@ -492,11 +494,16 @@ func (t *SubprocessCLITransport) messageReaderLoop() {
 			// Accumulate partial JSON
 			jsonBuffer += jsonLine
 
+			// Get max buffer size atomically
+			t.mu.RLock()
+			maxBufferSize := t.maxBufferSize
+			t.mu.RUnlock()
+
 			// Check buffer size
-			if len(jsonBuffer) > t.maxBufferSize {
+			if len(jsonBuffer) > maxBufferSize {
 				t.OnError(types.NewJSONDecodeError(
-					fmt.Sprintf("JSON message exceeded maximum buffer size of %d bytes", t.maxBufferSize),
-					fmt.Errorf("buffer size %d exceeds limit %d", len(jsonBuffer), t.maxBufferSize),
+					fmt.Sprintf("JSON message exceeded maximum buffer size of %d bytes", maxBufferSize),
+					fmt.Errorf("buffer size %d exceeds limit %d", len(jsonBuffer), maxBufferSize),
 				))
 				jsonBuffer = ""
 				continue
@@ -526,15 +533,25 @@ func (t *SubprocessCLITransport) messageReaderLoop() {
 		t.OnError(types.NewCLIConnectionError("error reading from stdout", err))
 	}
 
-	// Wait for process to complete and check exit code
-	if t.cmd != nil && t.cmd.Process != nil {
-		state, err := t.cmd.Process.Wait()
+	// Wait for process to complete and check exit code (with proper synchronization)
+	t.mu.Lock()
+	cmd := t.cmd
+	t.mu.Unlock()
+
+	if cmd != nil && cmd.Process != nil {
+		state, err := cmd.Process.Wait()
 		if err == nil && state.ExitCode() != 0 {
-			t.exitError = types.NewProcessError(
+			exitError := types.NewProcessError(
 				fmt.Sprintf("Claude Code process exited with code %d", state.ExitCode()),
 				fmt.Errorf("exit code %d", state.ExitCode()),
 			)
-			t.OnError(t.exitError)
+
+			// Set exitError atomically
+			t.mu.Lock()
+			t.exitError = exitError
+			t.mu.Unlock()
+
+			t.OnError(exitError)
 		}
 	}
 }
