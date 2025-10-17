@@ -468,7 +468,9 @@ func createMockCLI(t *testing.T, script string) string {
 
 func TestSubprocessCLITransport_MockCLI(t *testing.T) {
 	// Create a mock CLI that outputs simple JSON messages
+	// The mock needs to simulate Claude CLI behavior
 	mockScript := `#!/bin/bash
+# Accept any arguments and output JSON lines
 echo '{"type":"system","subtype":"start","data":{"session":"test"}}'
 echo '{"type":"assistant","content":[{"type":"text","text":"Hello!"}],"model":"claude-3-haiku-20240307"}'
 echo '{"type":"result","subtype":"success","duration_ms":1000,"session_id":"test","result":"Complete"}'
@@ -482,8 +484,10 @@ echo '{"type":"result","subtype":"success","duration_ms":1000,"session_id":"test
 	options := types.NewClaudeAgentOptions().
 		WithCWD(filepath.Dir(cliPath))
 
+	// Create transport in non-streaming mode for simpler testing
 	transport := NewSubprocessCLITransport("test", options)
 	transport.cliPath = cliPath
+	transport.isStreaming = false // Force non-streaming mode
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
