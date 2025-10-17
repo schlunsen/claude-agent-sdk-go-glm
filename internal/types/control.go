@@ -108,8 +108,8 @@ type MCPMessageRequest struct {
 func (r *MCPMessageRequest) Type() string { return SubtypeMCPMessage }
 
 // Helper function to extract and parse subtype from request data
-func extractSubtype(request interface{}) (string, []byte, error) {
-	requestBytes, err := json.Marshal(request)
+func extractSubtype(request interface{}) (subtype string, requestBytes []byte, err error) {
+	requestBytes, err = json.Marshal(request)
 	if err != nil {
 		return "", nil, NewJSONDecodeError("failed to marshal request data", err)
 	}
@@ -118,11 +118,13 @@ func extractSubtype(request interface{}) (string, []byte, error) {
 		Subtype string `json:"subtype"`
 	}
 
-	if err := json.Unmarshal(requestBytes, &typeField); err != nil {
+	err = json.Unmarshal(requestBytes, &typeField)
+	if err != nil {
 		return "", nil, NewJSONDecodeError("failed to decode control request subtype", err)
 	}
 
-	return typeField.Subtype, requestBytes, nil
+	subtype = typeField.Subtype
+	return subtype, requestBytes, nil
 }
 
 // UnmarshalControlRequest unmarshals JSON into the appropriate ControlRequest type
@@ -258,7 +260,7 @@ func NewSuccessResponse(requestID string, response map[string]any) ControlRespon
 }
 
 // NewErrorResponse creates a new error response
-func NewErrorResponse(requestID string, errorMsg string) ControlResponse {
+func NewErrorResponse(requestID, errorMsg string) ControlResponse {
 	return &ErrorResponse{
 		Subtype: ControlResponseTypeError,
 		ID:      requestID,

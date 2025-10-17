@@ -165,11 +165,11 @@ func (o *ClaudeAgentOptions) WithSystemPrompt(prompt interface{}) *ClaudeAgentOp
 }
 
 // WithMCPServer adds an MCP server configuration
-func (o *ClaudeAgentOptions) WithMCPServer(name string, config MCPServerConfig) *ClaudeAgentOptions {
+func (o *ClaudeAgentOptions) WithMCPServer(name string, config *MCPServerConfig) *ClaudeAgentOptions {
 	if o.MCPServers == nil {
 		o.MCPServers = make(map[string]MCPServerConfig)
 	}
-	o.MCPServers[name] = config
+	o.MCPServers[name] = *config
 	return o
 }
 

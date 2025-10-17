@@ -58,18 +58,44 @@ func TestClaudeAgentOptionsBuilder(t *testing.T) {
 		WithIncludePartialMessages(true).
 		WithForkSession(true)
 
+	assertAllowedTools(t, opts)
+	assertSystemPrompt(t, opts)
+	assertPermissionMode(t, opts)
+	assertBooleanOptions(t, opts)
+	assertPointerOptions(t, opts)
+}
+
+func assertAllowedTools(t *testing.T, opts *ClaudeAgentOptions) {
 	if len(opts.AllowedTools) != 2 || opts.AllowedTools[0] != "tool1" || opts.AllowedTools[1] != "tool2" {
 		t.Errorf("AllowedTools = %v, want [tool1, tool2]", opts.AllowedTools)
 	}
+}
+
+func assertSystemPrompt(t *testing.T, opts *ClaudeAgentOptions) {
 	if opts.SystemPrompt != "You are a helpful assistant." {
 		t.Errorf("SystemPrompt = %v, want 'You are a helpful assistant.'", opts.SystemPrompt)
 	}
+}
+
+func assertPermissionMode(t *testing.T, opts *ClaudeAgentOptions) {
 	if opts.PermissionMode == nil || *opts.PermissionMode != PermissionModeDefault {
 		t.Errorf("PermissionMode = %v, want %v", opts.PermissionMode, PermissionModeDefault)
 	}
+}
+
+func assertBooleanOptions(t *testing.T, opts *ClaudeAgentOptions) {
 	if !opts.ContinueConversation {
 		t.Error("ContinueConversation should be true")
 	}
+	if !opts.IncludePartialMessages {
+		t.Error("IncludePartialMessages should be true")
+	}
+	if !opts.ForkSession {
+		t.Error("ForkSession should be true")
+	}
+}
+
+func assertPointerOptions(t *testing.T, opts *ClaudeAgentOptions) {
 	if opts.MaxTurns == nil || *opts.MaxTurns != 5 {
 		t.Errorf("MaxTurns = %v, want 5", opts.MaxTurns)
 	}
@@ -78,12 +104,6 @@ func TestClaudeAgentOptionsBuilder(t *testing.T) {
 	}
 	if opts.User == nil || *opts.User != "test_user" {
 		t.Errorf("User = %v, want 'test_user'", opts.User)
-	}
-	if !opts.IncludePartialMessages {
-		t.Error("IncludePartialMessages should be true")
-	}
-	if !opts.ForkSession {
-		t.Error("ForkSession should be true")
 	}
 }
 
@@ -95,7 +115,7 @@ func TestWithMCPServer(t *testing.T) {
 		Args:    []string{"server.js"},
 	}
 
-	opts.WithMCPServer("test_server", config)
+	opts.WithMCPServer("test_server", &config)
 
 	if len(opts.MCPServers) != 1 {
 		t.Errorf("MCPServers length = %v, want 1", len(opts.MCPServers))
@@ -201,61 +221,67 @@ func TestWithSettingSources(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
-	t.Run("valid options", func(t *testing.T) {
-		opts := NewClaudeAgentOptions().
-			WithPermissionMode(PermissionModeDefault).
-			WithModel("claude-3-sonnet")
+	t.Run("valid options", testValidOptions)
+	t.Run("invalid permission mode", testInvalidPermissionMode)
+	t.Run("conflicting resume and continue conversation", testConflictingOptions)
+	t.Run("non-existent CWD", testNonExistentCWD)
+	t.Run("non-existent CLI path", testNonExistentCLIPath)
+}
 
-		err := opts.Validate()
-		if err != nil {
-			t.Errorf("Validate() error = %v, want nil", err)
-		}
-	})
+func testValidOptions(t *testing.T) {
+	opts := NewClaudeAgentOptions().
+		WithPermissionMode(PermissionModeDefault).
+		WithModel("claude-3-sonnet")
 
-	t.Run("invalid permission mode", func(t *testing.T) {
-		opts := NewClaudeAgentOptions()
-		invalidMode := PermissionMode("invalid")
-		opts.WithPermissionMode(invalidMode)
+	err := opts.Validate()
+	if err != nil {
+		t.Errorf("Validate() error = %v, want nil", err)
+	}
+}
 
-		err := opts.Validate()
-		if err == nil {
-			t.Error("Expected error for invalid permission mode")
-		}
-		if err.Error() != "invalid permission mode: invalid" {
-			t.Errorf("Error message = %v, want 'invalid permission mode: invalid'", err.Error())
-		}
-	})
+func testInvalidPermissionMode(t *testing.T) {
+	opts := NewClaudeAgentOptions()
+	invalidMode := PermissionMode("invalid")
+	opts.WithPermissionMode(invalidMode)
 
-	t.Run("conflicting resume and continue conversation", func(t *testing.T) {
-		opts := NewClaudeAgentOptions().
-			WithContinueConversation(true).
-			WithResume("session_123")
+	err := opts.Validate()
+	if err == nil {
+		t.Error("Expected error for invalid permission mode")
+	}
+	if err.Error() != "invalid permission mode: invalid" {
+		t.Errorf("Error message = %v, want 'invalid permission mode: invalid'", err.Error())
+	}
+}
 
-		err := opts.Validate()
-		if err == nil {
-			t.Error("Expected error for conflicting resume and continue_conversation")
-		}
-	})
+func testConflictingOptions(t *testing.T) {
+	opts := NewClaudeAgentOptions().
+		WithContinueConversation(true).
+		WithResume("session_123")
 
-	t.Run("non-existent CWD", func(t *testing.T) {
-		opts := NewClaudeAgentOptions().
-			WithCWD("/non/existent/path")
+	err := opts.Validate()
+	if err == nil {
+		t.Error("Expected error for conflicting resume and continue_conversation")
+	}
+}
 
-		err := opts.Validate()
-		if err == nil {
-			t.Error("Expected error for non-existent CWD")
-		}
-	})
+func testNonExistentCWD(t *testing.T) {
+	opts := NewClaudeAgentOptions().
+		WithCWD("/non/existent/path")
 
-	t.Run("non-existent CLI path", func(t *testing.T) {
-		opts := NewClaudeAgentOptions().
-			WithCLIPath("/non/existent/cli")
+	err := opts.Validate()
+	if err == nil {
+		t.Error("Expected error for non-existent CWD")
+	}
+}
 
-		err := opts.Validate()
-		if err == nil {
-			t.Error("Expected error for non-existent CLI path")
-		}
-	})
+func testNonExistentCLIPath(t *testing.T) {
+	opts := NewClaudeAgentOptions().
+		WithCLIPath("/non/existent/cli")
+
+	err := opts.Validate()
+	if err == nil {
+		t.Error("Expected error for non-existent CLI path")
+	}
 }
 
 func TestGetWorkingDirectory(t *testing.T) {
