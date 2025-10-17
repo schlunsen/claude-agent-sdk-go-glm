@@ -2,6 +2,8 @@
 
 **Unofficial community port** of the [official Python SDK](https://github.com/anthropics/claude-agent-sdk-python)
 
+*This Go port was developed using [z.ai GLM-4.6](https://z.ai)*
+
 ⚠️ This is **not affiliated with or endorsed by Anthropic**. Use at your own risk.
 
 A Go SDK for building multi-turn AI agent applications with Claude via the Claude Code CLI. Build agentic workflows, interact with tools, manage permissions, and stream responses with full control over execution.
@@ -21,7 +23,7 @@ A Go SDK for building multi-turn AI agent applications with Claude via the Claud
 
 🚧 **In Development** - Currently being ported from Python SDK v0.1.3
 
-- [ ] Phase 1: Foundation & Types (0%)
+- ✅ Phase 1: Foundation & Types (100%) - Complete!
 - [ ] Phase 2: Transport Layer (0%)
 - [ ] Phase 3: Message Parsing (0%)
 - [ ] Phase 4: Control Protocol (0%)
