@@ -20,6 +20,12 @@ func TestFindCLI(t *testing.T) {
 		t.Skip("Claude CLI not found, skipping test")
 	}
 
+	// If findCLI returns the fallback "claude" (meaning CLI wasn't found),
+	// skip the test since this indicates the CLI is not available
+	if cliPath == "claude" {
+		t.Skip("Claude CLI not found in PATH or common locations, skipping test")
+	}
+
 	// Verify the CLI is executable by using LookPath again
 	// This handles the case where findCLI returns just the command name
 	if _, err := exec.LookPath(cliPath); err != nil {
