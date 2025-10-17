@@ -20,9 +20,10 @@ func TestFindCLI(t *testing.T) {
 		t.Skip("Claude CLI not found, skipping test")
 	}
 
-	// Verify the path exists
-	if _, err := os.Stat(cliPath); os.IsNotExist(err) {
-		t.Errorf("CLI path %s does not exist", cliPath)
+	// Verify the CLI is executable by using LookPath again
+	// This handles the case where findCLI returns just the command name
+	if _, err := exec.LookPath(cliPath); err != nil {
+		t.Errorf("CLI path %s is not executable: %v", cliPath, err)
 	}
 }
 
