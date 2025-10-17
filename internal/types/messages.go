@@ -15,7 +15,7 @@ type TextBlock struct {
 	Text  string `json:"text"`
 }
 
-func (t *TextBlock) Type() string { return "text" }
+func (t *TextBlock) Type() string { return ContentTypeText }
 
 // ThinkingBlock represents thinking content
 type ThinkingBlock struct {
@@ -24,7 +24,7 @@ type ThinkingBlock struct {
 	Signature string `json:"signature"`
 }
 
-func (t *ThinkingBlock) Type() string { return "thinking" }
+func (t *ThinkingBlock) Type() string { return ContentTypeThinking }
 
 // ToolUseBlock represents a tool use content block
 type ToolUseBlock struct {
@@ -34,7 +34,7 @@ type ToolUseBlock struct {
 	Input map[string]any `json:"input"`
 }
 
-func (t *ToolUseBlock) Type() string { return "tool_use" }
+func (t *ToolUseBlock) Type() string { return ContentTypeToolUse }
 
 // ToolResultBlock represents a tool result content block
 type ToolResultBlock struct {
@@ -44,7 +44,7 @@ type ToolResultBlock struct {
 	IsError   *bool       `json:"is_error,omitempty"`
 }
 
-func (t *ToolResultBlock) Type() string { return "tool_result" }
+func (t *ToolResultBlock) Type() string { return ContentTypeToolResult }
 
 // UnmarshalContentBlock unmarshals JSON into the appropriate ContentBlock type
 func UnmarshalContentBlock(data []byte) (ContentBlock, error) {
@@ -57,25 +57,25 @@ func UnmarshalContentBlock(data []byte) (ContentBlock, error) {
 	}
 
 	switch typeField.Type {
-	case "text":
+	case ContentTypeText:
 		var block TextBlock
 		if err := json.Unmarshal(data, &block); err != nil {
 			return nil, NewJSONDecodeError("failed to decode text block", err)
 		}
 		return &block, nil
-	case "thinking":
+	case ContentTypeThinking:
 		var block ThinkingBlock
 		if err := json.Unmarshal(data, &block); err != nil {
 			return nil, NewJSONDecodeError("failed to decode thinking block", err)
 		}
 		return &block, nil
-	case "tool_use":
+	case ContentTypeToolUse:
 		var block ToolUseBlock
 		if err := json.Unmarshal(data, &block); err != nil {
 			return nil, NewJSONDecodeError("failed to decode tool_use block", err)
 		}
 		return &block, nil
-	case "tool_result":
+	case ContentTypeToolResult:
 		var block ToolResultBlock
 		if err := json.Unmarshal(data, &block); err != nil {
 			return nil, NewJSONDecodeError("failed to decode tool_result block", err)
@@ -91,16 +91,16 @@ func MarshalContentBlock(block ContentBlock) ([]byte, error) {
 	switch b := block.(type) {
 	case *TextBlock:
 		// Set the type field for consistency
-		b.Type_ = "text"
+		b.Type_ = ContentTypeText
 		return json.Marshal(b)
 	case *ThinkingBlock:
-		b.Type_ = "thinking"
+		b.Type_ = ContentTypeThinking
 		return json.Marshal(b)
 	case *ToolUseBlock:
-		b.Type_ = "tool_use"
+		b.Type_ = ContentTypeToolUse
 		return json.Marshal(b)
 	case *ToolResultBlock:
-		b.Type_ = "tool_result"
+		b.Type_ = ContentTypeToolResult
 		return json.Marshal(b)
 	default:
 		return nil, NewMessageParseError("unknown content block type", nil)
@@ -119,7 +119,7 @@ type UserMessage struct {
 	ParentToolUseID *string     `json:"parent_tool_use_id,omitempty"`
 }
 
-func (m *UserMessage) Type() string { return "user" }
+func (m *UserMessage) Type() string { return MessageTypeUser }
 
 // AssistantMessage represents an assistant message with content blocks
 type AssistantMessage struct {
@@ -129,7 +129,7 @@ type AssistantMessage struct {
 	ParentToolUseID *string        `json:"parent_tool_use_id,omitempty"`
 }
 
-func (m *AssistantMessage) Type() string { return "assistant" }
+func (m *AssistantMessage) Type() string { return MessageTypeAssistant }
 
 // SystemMessage represents a system message with metadata
 type SystemMessage struct {
@@ -138,7 +138,7 @@ type SystemMessage struct {
 	Data    map[string]any `json:"data"`
 }
 
-func (m *SystemMessage) Type() string { return "system" }
+func (m *SystemMessage) Type() string { return MessageTypeSystem }
 
 // ResultMessage represents a result message with cost and usage information
 type ResultMessage struct {
@@ -154,7 +154,7 @@ type ResultMessage struct {
 	Result        *string        `json:"result,omitempty"`
 }
 
-func (m *ResultMessage) Type() string { return "result" }
+func (m *ResultMessage) Type() string { return MessageTypeResult }
 
 // StreamEvent represents a stream event for partial message updates during streaming
 type StreamEvent struct {
@@ -165,7 +165,85 @@ type StreamEvent struct {
 	ParentToolUseID *string        `json:"parent_tool_use_id,omitempty"`
 }
 
-func (m *StreamEvent) Type() string { return "stream_event" }
+func (m *StreamEvent) Type() string { return MessageTypeStreamEvent }
+
+// Helper function to process user message content
+func processUserContent(content interface{}) (interface{}, error) {
+	if contentStr, ok := content.(string); ok {
+		return contentStr, nil
+	}
+
+	if contentArray, ok := content.([]interface{}); ok {
+		// Convert JSON array to ContentBlock slice
+		blocks := make([]ContentBlock, len(contentArray))
+		for i, item := range contentArray {
+			itemBytes, err := json.Marshal(item)
+			if err != nil {
+				return nil, NewJSONDecodeError("failed to marshal content block", err)
+			}
+			block, err := UnmarshalContentBlock(itemBytes)
+			if err != nil {
+				return nil, err
+			}
+			blocks[i] = block
+		}
+		return blocks, nil
+	}
+
+	return content, nil
+}
+
+// Helper function to unmarshal user message
+func unmarshalUserMessage(data []byte) (*UserMessage, error) {
+	var msg UserMessage
+	if err := json.Unmarshal(data, &msg); err != nil {
+		return nil, NewJSONDecodeError("failed to decode user message", err)
+	}
+
+	processedContent, err := processUserContent(msg.Content)
+	if err != nil {
+		return nil, err
+	}
+
+	msg.Content = processedContent
+	return &msg, nil
+}
+
+// Helper function to unmarshal assistant message
+func unmarshalAssistantMessage(data []byte) (*AssistantMessage, error) {
+	var rawMsg json.RawMessage
+	if err := json.Unmarshal(data, &rawMsg); err != nil {
+		return nil, NewJSONDecodeError("failed to decode assistant message", err)
+	}
+
+	var assistant struct {
+		Type_           string            `json:"type"`
+		Content         []json.RawMessage `json:"content"`
+		Model           string            `json:"model"`
+		ParentToolUseID *string           `json:"parent_tool_use_id,omitempty"`
+	}
+
+	if err := json.Unmarshal(rawMsg, &assistant); err != nil {
+		return nil, NewJSONDecodeError("failed to decode assistant message structure", err)
+	}
+
+	// Convert content blocks
+	blocks := make([]ContentBlock, len(assistant.Content))
+	for i, blockBytes := range assistant.Content {
+		block, err := UnmarshalContentBlock([]byte(blockBytes))
+		if err != nil {
+			return nil, err
+		}
+		blocks[i] = block
+	}
+
+	return &AssistantMessage{
+		Type_:           assistant.Type_,
+		Content:         blocks,
+		Model:           assistant.Model,
+		ParentToolUseID: assistant.ParentToolUseID,
+	}, nil
+}
 
 // UnmarshalMessage unmarshals JSON into the appropriate Message type
 func UnmarshalMessage(data []byte) (Message, error) {
@@ -178,79 +256,23 @@ func UnmarshalMessage(data []byte) (Message, error) {
 	}
 
 	switch typeField.Type {
-	case "user":
-		var msg UserMessage
-		if err := json.Unmarshal(data, &msg); err != nil {
-			return nil, NewJSONDecodeError("failed to decode user message", err)
-		}
-
-		// Handle content field - convert to proper type if needed
-		if contentStr, ok := msg.Content.(string); ok {
-			msg.Content = contentStr
-		} else if contentArray, ok := msg.Content.([]interface{}); ok {
-			// Convert JSON array to ContentBlock slice
-			blocks := make([]ContentBlock, len(contentArray))
-			for i, item := range contentArray {
-				itemBytes, err := json.Marshal(item)
-				if err != nil {
-					return nil, NewJSONDecodeError("failed to marshal content block", err)
-				}
-				block, err := UnmarshalContentBlock(itemBytes)
-				if err != nil {
-					return nil, err
-				}
-				blocks[i] = block
-			}
-			msg.Content = blocks
-		}
-
-		return &msg, nil
-	case "assistant":
-		var rawMsg json.RawMessage
-		if err := json.Unmarshal(data, &rawMsg); err != nil {
-			return nil, NewJSONDecodeError("failed to decode assistant message", err)
-		}
-
-		var assistant struct {
-			Type_           string            `json:"type"`
-			Content         []json.RawMessage `json:"content"`
-			Model           string            `json:"model"`
-			ParentToolUseID *string           `json:"parent_tool_use_id,omitempty"`
-		}
-
-		if err := json.Unmarshal(rawMsg, &assistant); err != nil {
-			return nil, NewJSONDecodeError("failed to decode assistant message structure", err)
-		}
-
-		// Convert content blocks
-		blocks := make([]ContentBlock, len(assistant.Content))
-		for i, blockBytes := range assistant.Content {
-			block, err := UnmarshalContentBlock([]byte(blockBytes))
-			if err != nil {
-				return nil, err
-			}
-			blocks[i] = block
-		}
-
-		return &AssistantMessage{
-			Type_:           assistant.Type_,
-			Content:         blocks,
-			Model:           assistant.Model,
-			ParentToolUseID: assistant.ParentToolUseID,
-		}, nil
-	case "system":
+	case MessageTypeUser:
+		return unmarshalUserMessage(data)
+	case MessageTypeAssistant:
+		return unmarshalAssistantMessage(data)
+	case MessageTypeSystem:
 		var msg SystemMessage
 		if err := json.Unmarshal(data, &msg); err != nil {
 			return nil, NewJSONDecodeError("failed to decode system message", err)
 		}
 		return &msg, nil
-	case "result":
+	case MessageTypeResult:
 		var msg ResultMessage
 		if err := json.Unmarshal(data, &msg); err != nil {
 			return nil, NewJSONDecodeError("failed to decode result message", err)
 		}
 		return &msg, nil
-	case "stream_event":
+	case MessageTypeStreamEvent:
 		var msg StreamEvent
 		if err := json.Unmarshal(data, &msg); err != nil {
 			return nil, NewJSONDecodeError("failed to decode stream event", err)
@@ -261,74 +283,88 @@ func UnmarshalMessage(data []byte) (Message, error) {
 	}
 }
 
-// MarshalMessage marshals a Message to JSON
-func MarshalMessage(msg Message) ([]byte, error) {
-	switch m := msg.(type) {
-	case *UserMessage:
-		m.Type_ = "user"
-		// Handle content blocks - if they are ContentBlock types, marshal them properly
-		if blocks, ok := m.Content.([]ContentBlock); ok {
-			marshaledBlocks := make([]interface{}, len(blocks))
-			for i, block := range blocks {
-				blockBytes, err := MarshalContentBlock(block)
-				if err != nil {
-					return nil, err
-				}
-				var blockObj interface{}
-				if err := json.Unmarshal(blockBytes, &blockObj); err != nil {
-					return nil, err
-				}
-				marshaledBlocks[i] = blockObj
-			}
-			// Create a temporary struct for marshaling
-			tempMsg := struct {
-				Type_           string      `json:"type"`
-				Content         interface{} `json:"content"`
-				ParentToolUseID *string     `json:"parent_tool_use_id,omitempty"`
-			}{
-				Type_:           m.Type_,
-				Content:         marshaledBlocks,
-				ParentToolUseID: m.ParentToolUseID,
-			}
-			return json.Marshal(tempMsg)
+// Helper function to marshal content blocks for user/assistant messages
+func marshalContentBlocks(blocks []ContentBlock) ([]interface{}, error) {
+	marshaledBlocks := make([]interface{}, len(blocks))
+	for i, block := range blocks {
+		blockBytes, err := MarshalContentBlock(block)
+		if err != nil {
+			return nil, err
 		}
-		return json.Marshal(m)
-	case *AssistantMessage:
-		m.Type_ = "assistant"
-		// Handle content blocks
-		marshaledBlocks := make([]interface{}, len(m.Content))
-		for i, block := range m.Content {
-			blockBytes, err := MarshalContentBlock(block)
-			if err != nil {
-				return nil, err
-			}
-			var blockObj interface{}
-			if err := json.Unmarshal(blockBytes, &blockObj); err != nil {
-				return nil, err
-			}
-			marshaledBlocks[i] = blockObj
+		var blockObj interface{}
+		if err := json.Unmarshal(blockBytes, &blockObj); err != nil {
+			return nil, err
+		}
+		marshaledBlocks[i] = blockObj
+	}
+	return marshaledBlocks, nil
+}
+
+// Helper function to marshal user message
+func marshalUserMessage(msg *UserMessage) ([]byte, error) {
+	msg.Type_ = MessageTypeUser
+
+	// Handle content blocks - if they are ContentBlock types, marshal them properly
+	if blocks, ok := msg.Content.([]ContentBlock); ok {
+		marshaledBlocks, err := marshalContentBlocks(blocks)
+		if err != nil {
+			return nil, err
 		}
 		// Create a temporary struct for marshaling
 		tempMsg := struct {
 			Type_           string      `json:"type"`
 			Content         interface{} `json:"content"`
-			Model           string      `json:"model"`
 			ParentToolUseID *string     `json:"parent_tool_use_id,omitempty"`
 		}{
-			Type_:           m.Type_,
+			Type_:           msg.Type_,
 			Content:         marshaledBlocks,
-			Model:           m.Model,
-			ParentToolUseID: m.ParentToolUseID,
+			ParentToolUseID: msg.ParentToolUseID,
 		}
 		return json.Marshal(tempMsg)
+	}
+	return json.Marshal(msg)
+}
+
+// Helper function to marshal assistant message
+func marshalAssistantMessage(msg *AssistantMessage) ([]byte, error) {
+	msg.Type_ = MessageTypeAssistant
+
+	// Handle content blocks
+	marshaledBlocks, err := marshalContentBlocks(msg.Content)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a temporary struct for marshaling
+	tempMsg := struct {
+		Type_           string      `json:"type"`
+		Content         interface{} `json:"content"`
+		Model           string      `json:"model"`
+		ParentToolUseID *string     `json:"parent_tool_use_id,omitempty"`
+	}{
+		Type_:           msg.Type_,
+		Content:         marshaledBlocks,
+		Model:           msg.Model,
+		ParentToolUseID: msg.ParentToolUseID,
+	}
+	return json.Marshal(tempMsg)
+}
+
+// MarshalMessage marshals a Message to JSON
+func MarshalMessage(msg Message) ([]byte, error) {
+	switch m := msg.(type) {
+	case *UserMessage:
+		return marshalUserMessage(m)
+	case *AssistantMessage:
+		return marshalAssistantMessage(m)
 	case *SystemMessage:
-		m.Type_ = "system"
+		m.Type_ = MessageTypeSystem
 		return json.Marshal(m)
 	case *ResultMessage:
-		m.Type_ = "result"
+		m.Type_ = MessageTypeResult
 		return json.Marshal(m)
 	case *StreamEvent:
-		m.Type_ = "stream_event"
+		m.Type_ = MessageTypeStreamEvent
 		return json.Marshal(m)
 	default:
 		return nil, NewMessageParseError("unknown message type", nil)

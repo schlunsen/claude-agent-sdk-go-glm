@@ -31,7 +31,9 @@ fmt:
 # Run linters
 lint:
 	@echo "Running linters..."
-	@if command -v golangci-lint >/dev/null 2>&1; then \
+	@if [ -f "$(shell go env GOPATH)/bin/golangci-lint" ]; then \
+		$(shell go env GOPATH)/bin/golangci-lint run ./...; \
+	elif command -v golangci-lint >/dev/null 2>&1; then \
 		golangci-lint run ./...; \
 	else \
 		echo "golangci-lint not installed. Install with: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \

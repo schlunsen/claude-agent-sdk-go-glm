@@ -284,7 +284,9 @@ func (o *ClaudeAgentOptions) WithStderrCallback(callback func(string)) *ClaudeAg
 }
 
 // WithCanUseTool sets the tool permission callback
-func (o *ClaudeAgentOptions) WithCanUseTool(callback func(string, map[string]any, interface{}) (PermissionResult, error)) *ClaudeAgentOptions {
+func (o *ClaudeAgentOptions) WithCanUseTool(
+	callback func(string, map[string]any, interface{}) (PermissionResult, error),
+) *ClaudeAgentOptions {
 	o.CanUseTool = callback
 	return o
 }

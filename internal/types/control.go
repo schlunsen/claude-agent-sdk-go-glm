@@ -23,7 +23,7 @@ type SDKControlRequest struct {
 	Request interface{} `json:"request"`
 }
 
-func (r *SDKControlRequest) Type() string      { return "control_request" }
+func (r *SDKControlRequest) Type() string      { return ControlTypeRequest }
 func (r *SDKControlRequest) RequestID() string { return r.ID }
 
 // SDKControlResponse represents the wrapper for all control responses
@@ -32,7 +32,7 @@ type SDKControlResponse struct {
 	Response interface{} `json:"response"`
 }
 
-func (r *SDKControlResponse) Type() string { return "control_response" }
+func (r *SDKControlResponse) Type() string { return ControlTypeResponse }
 
 // SuccessResponse represents a successful control response
 type SuccessResponse struct {
@@ -41,7 +41,7 @@ type SuccessResponse struct {
 	Response map[string]any `json:"response,omitempty"`
 }
 
-func (r *SuccessResponse) Type() string      { return "success" }
+func (r *SuccessResponse) Type() string      { return ControlResponseTypeSuccess }
 func (r *SuccessResponse) RequestID() string { return r.ID }
 
 // ErrorResponse represents an error control response
@@ -51,7 +51,7 @@ type ErrorResponse struct {
 	Error   string `json:"error"`
 }
 
-func (r *ErrorResponse) Type() string      { return "error" }
+func (r *ErrorResponse) Type() string      { return ControlResponseTypeError }
 func (r *ErrorResponse) RequestID() string { return r.ID }
 
 // InterruptRequest represents an interrupt control request
@@ -59,7 +59,7 @@ type InterruptRequest struct {
 	Subtype string `json:"subtype"`
 }
 
-func (r *InterruptRequest) Type() string { return "interrupt" }
+func (r *InterruptRequest) Type() string { return SubtypeInterrupt }
 
 // PermissionRequest represents a permission control request
 type PermissionRequest struct {
@@ -70,7 +70,7 @@ type PermissionRequest struct {
 	BlockedPath           *string        `json:"blocked_path,omitempty"`
 }
 
-func (r *PermissionRequest) Type() string { return "can_use_tool" }
+func (r *PermissionRequest) Type() string { return SubtypeCanUseTool }
 
 // InitializeRequest represents an initialize control request
 type InitializeRequest struct {
@@ -78,7 +78,7 @@ type InitializeRequest struct {
 	Hooks   map[string]interface{} `json:"hooks,omitempty"`
 }
 
-func (r *InitializeRequest) Type() string { return "initialize" }
+func (r *InitializeRequest) Type() string { return SubtypeInitialize }
 
 // SetPermissionModeRequest represents a set permission mode control request
 type SetPermissionModeRequest struct {
@@ -86,7 +86,7 @@ type SetPermissionModeRequest struct {
 	Mode    string `json:"mode"`
 }
 
-func (r *SetPermissionModeRequest) Type() string { return "set_permission_mode" }
+func (r *SetPermissionModeRequest) Type() string { return SubtypeSetPermissionMode }
 
 // HookCallbackRequest represents a hook callback control request
 type HookCallbackRequest struct {
@@ -96,7 +96,7 @@ type HookCallbackRequest struct {
 	ToolUseID  *string     `json:"tool_use_id,omitempty"`
 }
 
-func (r *HookCallbackRequest) Type() string { return "hook_callback" }
+func (r *HookCallbackRequest) Type() string { return SubtypeHookCallback }
 
 // MCPMessageRequest represents an MCP message control request
 type MCPMessageRequest struct {
@@ -105,7 +105,25 @@ type MCPMessageRequest struct {
 	Message    interface{} `json:"message"`
 }
 
-func (r *MCPMessageRequest) Type() string { return "mcp_message" }
+func (r *MCPMessageRequest) Type() string { return SubtypeMCPMessage }
+
+// Helper function to extract and parse subtype from request data
+func extractSubtype(request interface{}) (string, []byte, error) {
+	requestBytes, err := json.Marshal(request)
+	if err != nil {
+		return "", nil, NewJSONDecodeError("failed to marshal request data", err)
+	}
+
+	var typeField struct {
+		Subtype string `json:"subtype"`
+	}
+
+	if err := json.Unmarshal(requestBytes, &typeField); err != nil {
+		return "", nil, NewJSONDecodeError("failed to decode control request subtype", err)
+	}
+
+	return typeField.Subtype, requestBytes, nil
+}
 
 // UnmarshalControlRequest unmarshals JSON into the appropriate ControlRequest type
 func UnmarshalControlRequest(data []byte) (ControlRequest, error) {
@@ -114,77 +132,56 @@ func UnmarshalControlRequest(data []byte) (ControlRequest, error) {
 		return nil, NewJSONDecodeError("failed to decode control request wrapper", err)
 	}
 
-	// Extract the request part and unmarshal based on subtype
-	requestBytes, err := json.Marshal(wrapper.Request)
+	subtype, requestBytes, err := extractSubtype(wrapper.Request)
 	if err != nil {
-		return nil, NewJSONDecodeError("failed to marshal request data", err)
+		return nil, err
 	}
 
-	var typeField struct {
-		Subtype string `json:"subtype"`
-	}
-
-	if err := json.Unmarshal(requestBytes, &typeField); err != nil {
-		return nil, NewJSONDecodeError("failed to decode control request subtype", err)
-	}
-
-	switch typeField.Subtype {
-	case "interrupt":
+	switch subtype {
+	case SubtypeInterrupt:
 		var req InterruptRequest
 		if err := json.Unmarshal(requestBytes, &req); err != nil {
 			return nil, NewJSONDecodeError("failed to decode interrupt request", err)
 		}
-		return &InterruptRequestWrapper{
-			wrapper: &wrapper,
-			request: &req,
-		}, nil
-	case "can_use_tool":
+		return &InterruptRequestWrapper{wrapper: &wrapper, request: &req}, nil
+
+	case SubtypeCanUseTool:
 		var req PermissionRequest
 		if err := json.Unmarshal(requestBytes, &req); err != nil {
 			return nil, NewJSONDecodeError("failed to decode permission request", err)
 		}
-		return &PermissionRequestWrapper{
-			wrapper: &wrapper,
-			request: &req,
-		}, nil
-	case "initialize":
+		return &PermissionRequestWrapper{wrapper: &wrapper, request: &req}, nil
+
+	case SubtypeInitialize:
 		var req InitializeRequest
 		if err := json.Unmarshal(requestBytes, &req); err != nil {
 			return nil, NewJSONDecodeError("failed to decode initialize request", err)
 		}
-		return &InitializeRequestWrapper{
-			wrapper: &wrapper,
-			request: &req,
-		}, nil
-	case "set_permission_mode":
+		return &InitializeRequestWrapper{wrapper: &wrapper, request: &req}, nil
+
+	case SubtypeSetPermissionMode:
 		var req SetPermissionModeRequest
 		if err := json.Unmarshal(requestBytes, &req); err != nil {
 			return nil, NewJSONDecodeError("failed to decode set permission mode request", err)
 		}
-		return &SetPermissionModeRequestWrapper{
-			wrapper: &wrapper,
-			request: &req,
-		}, nil
-	case "hook_callback":
+		return &SetPermissionModeRequestWrapper{wrapper: &wrapper, request: &req}, nil
+
+	case SubtypeHookCallback:
 		var req HookCallbackRequest
 		if err := json.Unmarshal(requestBytes, &req); err != nil {
 			return nil, NewJSONDecodeError("failed to decode hook callback request", err)
 		}
-		return &HookCallbackRequestWrapper{
-			wrapper: &wrapper,
-			request: &req,
-		}, nil
-	case "mcp_message":
+		return &HookCallbackRequestWrapper{wrapper: &wrapper, request: &req}, nil
+
+	case SubtypeMCPMessage:
 		var req MCPMessageRequest
 		if err := json.Unmarshal(requestBytes, &req); err != nil {
 			return nil, NewJSONDecodeError("failed to decode mcp message request", err)
 		}
-		return &MCPMessageRequestWrapper{
-			wrapper: &wrapper,
-			request: &req,
-		}, nil
+		return &MCPMessageRequestWrapper{wrapper: &wrapper, request: &req}, nil
+
 	default:
-		return nil, NewMessageParseError("unknown control request subtype: "+typeField.Subtype, nil)
+		return nil, NewMessageParseError("unknown control request subtype: "+subtype, nil)
 	}
 }
 
@@ -240,15 +237,9 @@ func (w *MCPMessageRequestWrapper) RequestID() string { return w.wrapper.ID }
 // MarshalControlResponse marshals a ControlResponse to JSON
 func MarshalControlResponse(resp ControlResponse) ([]byte, error) {
 	switch r := resp.(type) {
-	case *SuccessResponse:
+	case *SuccessResponse, *ErrorResponse:
 		wrapper := &SDKControlResponse{
-			Type_:    "control_response",
-			Response: r,
-		}
-		return json.Marshal(wrapper)
-	case *ErrorResponse:
-		wrapper := &SDKControlResponse{
-			Type_:    "control_response",
+			Type_:    ControlTypeResponse,
 			Response: r,
 		}
 		return json.Marshal(wrapper)
@@ -260,7 +251,7 @@ func MarshalControlResponse(resp ControlResponse) ([]byte, error) {
 // NewSuccessResponse creates a new success response
 func NewSuccessResponse(requestID string, response map[string]any) ControlResponse {
 	return &SuccessResponse{
-		Subtype:  "success",
+		Subtype:  ControlResponseTypeSuccess,
 		ID:       requestID,
 		Response: response,
 	}
@@ -269,7 +260,7 @@ func NewSuccessResponse(requestID string, response map[string]any) ControlRespon
 // NewErrorResponse creates a new error response
 func NewErrorResponse(requestID string, errorMsg string) ControlResponse {
 	return &ErrorResponse{
-		Subtype: "error",
+		Subtype: ControlResponseTypeError,
 		ID:      requestID,
 		Error:   errorMsg,
 	}

@@ -5,13 +5,28 @@ import (
 	"testing"
 )
 
+// testErrorCase represents a test case for error types
+type testErrorCase struct {
+	name    string
+	message string
+	cause   error
+	want    string
+}
+
+// testErrorBehavior tests the common behavior of all error types
+func testErrorBehavior(t *testing.T, err error, tt testErrorCase) {
+	if err.Error() != tt.want {
+		t.Errorf("Error() = %v, want %v", err.Error(), tt.want)
+	}
+	if errUnwrap, ok := err.(interface{ Unwrap() error }); ok {
+		if errUnwrap.Unwrap() != tt.cause {
+			t.Errorf("Unwrap() = %v, want %v", errUnwrap.Unwrap(), tt.cause)
+		}
+	}
+}
+
 func TestCLINotFoundError(t *testing.T) {
-	tests := []struct {
-		name    string
-		message string
-		cause   error
-		want    string
-	}{
+	tests := []testErrorCase{
 		{
 			name:    "no cause",
 			message: "CLI not found",
@@ -29,23 +44,13 @@ func TestCLINotFoundError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := NewCLINotFoundError(tt.message, tt.cause)
-			if err.Error() != tt.want {
-				t.Errorf("CLINotFoundError.Error() = %v, want %v", err.Error(), tt.want)
-			}
-			if err.Unwrap() != tt.cause {
-				t.Errorf("CLINotFoundError.Unwrap() = %v, want %v", err.Unwrap(), tt.cause)
-			}
+			testErrorBehavior(t, err, tt)
 		})
 	}
 }
 
 func TestCLIConnectionError(t *testing.T) {
-	tests := []struct {
-		name    string
-		message string
-		cause   error
-		want    string
-	}{
+	tests := []testErrorCase{
 		{
 			name:    "no cause",
 			message: "Connection failed",
@@ -63,23 +68,13 @@ func TestCLIConnectionError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := NewCLIConnectionError(tt.message, tt.cause)
-			if err.Error() != tt.want {
-				t.Errorf("CLIConnectionError.Error() = %v, want %v", err.Error(), tt.want)
-			}
-			if err.Unwrap() != tt.cause {
-				t.Errorf("CLIConnectionError.Unwrap() = %v, want %v", err.Unwrap(), tt.cause)
-			}
+			testErrorBehavior(t, err, tt)
 		})
 	}
 }
 
 func TestProcessError(t *testing.T) {
-	tests := []struct {
-		name    string
-		message string
-		cause   error
-		want    string
-	}{
+	tests := []testErrorCase{
 		{
 			name:    "no cause",
 			message: "Process error",
@@ -97,23 +92,13 @@ func TestProcessError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := NewProcessError(tt.message, tt.cause)
-			if err.Error() != tt.want {
-				t.Errorf("ProcessError.Error() = %v, want %v", err.Error(), tt.want)
-			}
-			if err.Unwrap() != tt.cause {
-				t.Errorf("ProcessError.Unwrap() = %v, want %v", err.Unwrap(), tt.cause)
-			}
+			testErrorBehavior(t, err, tt)
 		})
 	}
 }
 
 func TestJSONDecodeError(t *testing.T) {
-	tests := []struct {
-		name    string
-		message string
-		cause   error
-		want    string
-	}{
+	tests := []testErrorCase{
 		{
 			name:    "no cause",
 			message: "Invalid JSON",
@@ -131,23 +116,13 @@ func TestJSONDecodeError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := NewJSONDecodeError(tt.message, tt.cause)
-			if err.Error() != tt.want {
-				t.Errorf("JSONDecodeError.Error() = %v, want %v", err.Error(), tt.want)
-			}
-			if err.Unwrap() != tt.cause {
-				t.Errorf("JSONDecodeError.Unwrap() = %v, want %v", err.Unwrap(), tt.cause)
-			}
+			testErrorBehavior(t, err, tt)
 		})
 	}
 }
 
 func TestMessageParseError(t *testing.T) {
-	tests := []struct {
-		name    string
-		message string
-		cause   error
-		want    string
-	}{
+	tests := []testErrorCase{
 		{
 			name:    "no cause",
 			message: "Parse error",
@@ -165,23 +140,13 @@ func TestMessageParseError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := NewMessageParseError(tt.message, tt.cause)
-			if err.Error() != tt.want {
-				t.Errorf("MessageParseError.Error() = %v, want %v", err.Error(), tt.want)
-			}
-			if err.Unwrap() != tt.cause {
-				t.Errorf("MessageParseError.Unwrap() = %v, want %v", err.Unwrap(), tt.cause)
-			}
+			testErrorBehavior(t, err, tt)
 		})
 	}
 }
 
 func TestControlProtocolError(t *testing.T) {
-	tests := []struct {
-		name    string
-		message string
-		cause   error
-		want    string
-	}{
+	tests := []testErrorCase{
 		{
 			name:    "no cause",
 			message: "Protocol error",
@@ -199,23 +164,13 @@ func TestControlProtocolError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := NewControlProtocolError(tt.message, tt.cause)
-			if err.Error() != tt.want {
-				t.Errorf("ControlProtocolError.Error() = %v, want %v", err.Error(), tt.want)
-			}
-			if err.Unwrap() != tt.cause {
-				t.Errorf("ControlProtocolError.Unwrap() = %v, want %v", err.Unwrap(), tt.cause)
-			}
+			testErrorBehavior(t, err, tt)
 		})
 	}
 }
 
 func TestPermissionDeniedError(t *testing.T) {
-	tests := []struct {
-		name    string
-		message string
-		cause   error
-		want    string
-	}{
+	tests := []testErrorCase{
 		{
 			name:    "no cause",
 			message: "Permission denied",
@@ -233,12 +188,7 @@ func TestPermissionDeniedError(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := NewPermissionDeniedError(tt.message, tt.cause)
-			if err.Error() != tt.want {
-				t.Errorf("PermissionDeniedError.Error() = %v, want %v", err.Error(), tt.want)
-			}
-			if err.Unwrap() != tt.cause {
-				t.Errorf("PermissionDeniedError.Unwrap() = %v, want %v", err.Unwrap(), tt.cause)
-			}
+			testErrorBehavior(t, err, tt)
 		})
 	}
 }
