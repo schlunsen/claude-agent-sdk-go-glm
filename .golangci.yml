@@ -2,6 +2,9 @@ run:
   timeout: 5m
   modules-download-mode: readonly
 
+output:
+  format: colored-line-number
+
 linters-settings:
   govet:
     check-shadowing: true
@@ -31,6 +34,10 @@ linters-settings:
       - octalLiteral
       - whyNoLint
       - wrapperFunc
+  gomnd:
+    settings:
+      mnd:
+        checks: argument,case,condition,operation,return,assign
 
 linters:
   enable:
@@ -56,6 +63,7 @@ linters:
     - misspell
     - nakedret
     - rowserrcheck
+    - shadow
     - staticcheck
     - stylecheck
     - typecheck
