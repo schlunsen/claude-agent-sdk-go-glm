@@ -83,5 +83,5 @@ jobs:
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v3
       with:
-        version: latest
-        args: --timeout=5m
+        version: v1.57.2
+        args: --timeout=3m --max-same-issues=0 --max-issues-per-linter=0

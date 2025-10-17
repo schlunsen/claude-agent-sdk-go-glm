@@ -35,37 +35,37 @@ const (
 // SubprocessCLITransport implements Transport using Claude Code CLI subprocess
 type SubprocessCLITransport struct {
 	// Configuration
-	prompt             string                    // The prompt to send
-	options            *types.ClaudeAgentOptions // Transport options
-	isStreaming        bool                      // Whether we're in streaming mode
-	cliPath            string                    // Path to Claude CLI
-	cwd                string                    // Working directory
-	maxBufferSize      int                       // Maximum buffer size
+	prompt        string                    // The prompt to send
+	options       *types.ClaudeAgentOptions // Transport options
+	isStreaming   bool                      // Whether we're in streaming mode
+	cliPath       string                    // Path to Claude CLI
+	cwd           string                    // Working directory
+	maxBufferSize int                       // Maximum buffer size
 
 	// Process management
-	cmd                *exec.Cmd          // The subprocess command
-	ctx                context.Context    // Context for cancellation
-	cancel             context.CancelFunc // Cancellation function
-	stdin              io.WriteCloser     // stdin pipe
-	stdout             io.ReadCloser      // stdout pipe
-	stderr             io.ReadCloser      // stderr pipe
+	cmd    *exec.Cmd          // The subprocess command
+	ctx    context.Context    // Context for cancellation
+	cancel context.CancelFunc // Cancellation function
+	stdin  io.WriteCloser     // stdin pipe
+	stdout io.ReadCloser      // stdout pipe
+	stderr io.ReadCloser      // stderr pipe
 
 	// Stream management
-	stdoutReader       *bufio.Scanner     // Buffered stdout reader
-	stdinWriter        *bufio.Writer      // Buffered stdin writer
+	stdoutReader *bufio.Scanner // Buffered stdout reader
+	stdinWriter  *bufio.Writer  // Buffered stdin writer
 
 	// State
-	ready              bool               // Whether transport is ready
-	mu                 sync.RWMutex       // Mutex for thread safety
-	exitError          error              // Error that caused process exit
+	ready     bool         // Whether transport is ready
+	mu        sync.RWMutex // Mutex for thread safety
+	exitError error        // Error that caused process exit
 
 	// Message handling
-	messageChan        chan types.Message // Channel for outgoing messages
-	errorChan          chan error         // Channel for errors
+	messageChan chan types.Message // Channel for outgoing messages
+	errorChan   chan error         // Channel for errors
 
 	// Stderr handling
-	stderrCallback     func(string)       // Callback for stderr output
-	stderrDone         chan struct{}      // Channel to signal stderr handling done
+	stderrCallback func(string)  // Callback for stderr output
+	stderrDone     chan struct{} // Channel to signal stderr handling done
 }
 
 // NewSubprocessCLITransport creates a new SubprocessCLITransport
@@ -468,7 +468,7 @@ func (t *SubprocessCLITransport) messageReaderLoop() {
 	jsonBuffer := ""
 
 	// Configure scanner to handle long lines
-	buf := make([]byte, 0, 64*1024) // 64KB initial buffer
+	buf := make([]byte, 0, 64*1024)  // 64KB initial buffer
 	reader.Buffer(buf, 10*1024*1024) // 10MB max token size
 
 	for reader.Scan() {

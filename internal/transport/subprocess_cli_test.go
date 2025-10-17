@@ -383,10 +383,10 @@ func TestSubprocessCLITransport_Integration(t *testing.T) {
 	if err != nil {
 		// Check if it's an authentication/connection issue and skip gracefully
 		if strings.Contains(err.Error(), "401") ||
-		   strings.Contains(err.Error(), "403") ||
-		   strings.Contains(err.Error(), "authentication") ||
-		   strings.Contains(err.Error(), "unauthorized") ||
-		   strings.Contains(err.Error(), "API key") {
+			strings.Contains(err.Error(), "403") ||
+			strings.Contains(err.Error(), "authentication") ||
+			strings.Contains(err.Error(), "unauthorized") ||
+			strings.Contains(err.Error(), "API key") {
 			t.Skip("Claude CLI authentication required, skipping integration test")
 		}
 		t.Fatalf("Failed to connect: %v", err)
