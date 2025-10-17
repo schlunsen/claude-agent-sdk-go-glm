@@ -152,7 +152,7 @@ func main() {
 
 ## Requirements
 
-- **Go 1.20+** (for improved error handling with `errors.Is()`)
+- **Go 1.22+** (for improved error handling with `errors.Is()`)
 - **Claude Code CLI** installed globally:
   ```bash
   npm install -g @anthropic-ai/claude-code
@@ -369,7 +369,7 @@ See `examples/` directory for complete, runnable examples:
 ### Prerequisites
 
 ```bash
-go 1.20+
+go 1.22+
 ```
 
 ### Build
@@ -457,4 +457,4 @@ For issues with:
 
 ---
 
-**Status**: 🚧 In Development | **Go Version**: 1.20+ | **Last Updated**: October 2024
+**Status**: 🚧 In Development | **Go Version**: 1.22+ | **Last Updated**: October 2024
